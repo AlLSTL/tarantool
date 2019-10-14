@@ -1,5 +1,5 @@
 # Enable systemd for on RHEL >= 7 and Fedora >= 15
-%if (0%{?fedora} >= 15 || 0%{?rhel} >= 7)
+%if (0%{?fedora} >= 15 || 0%{?rhel} >= 7 || 0%{?sle_version} >= 1500)
 %bcond_without systemd
 %else
 %bcond_with systemd
@@ -7,7 +7,7 @@
 
 BuildRequires: cmake >= 2.8
 BuildRequires: make
-%if (0%{?fedora} >= 22 || 0%{?rhel} >= 7)
+%if (0%{?fedora} >= 22 || 0%{?rhel} >= 7 || 0%{?sle_version} >= 1500)
 # RHEL 6 requires devtoolset
 BuildRequires: gcc >= 4.5
 BuildRequires: gcc-c++ >= 4.5
@@ -70,7 +70,7 @@ BuildRequires: libunwind-devel
 %endif
 
 # For tests
-%if (0%{?fedora} >= 22 || 0%{?rhel} == 7)
+%if (0%{?fedora} >= 22 || 0%{?rhel} == 7 || 0%{?sle_version} >= 1500)
 BuildRequires: python >= 2.7
 BuildRequires: python-six >= 1.9.0
 BuildRequires: python-gevent >= 1.0
@@ -102,7 +102,7 @@ Requires: /etc/services
 # Deps for built-in package manager
 # https://github.com/tarantool/tarantool/issues/2612
 Requires: openssl
-%if (0%{?fedora} >= 22 || 0%{?rhel} >= 8)
+%if (0%{?fedora} >= 22 || 0%{?rhel} >= 8 || 0%{?sle_version} >= 1500)
 # RHEL <= 7 doesn't support Recommends:
 Recommends: tarantool-devel
 Recommends: git-core
@@ -138,7 +138,14 @@ C and Lua/C modules.
 
 %build
 # RHBZ #1301720: SYSCONFDIR an LOCALSTATEDIR must be specified explicitly
-%cmake . -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+%if (0%{?sle_version} >= 1500)
+# SuSE uses only out-of-source builds in its macros
+%cmake .. \
+         -DCMAKE_INSTALL_PREFIX:PATH=/usr \
+%else
+%cmake . \
+%endif
+	 -DCMAKE_BUILD_TYPE=RelWithDebInfo \
          -DCMAKE_INSTALL_LOCALSTATEDIR:PATH=%{_localstatedir} \
          -DCMAKE_INSTALL_SYSCONFDIR:PATH=%{_sysconfdir} \
 %if %{with backtrace}
@@ -154,19 +161,26 @@ C and Lua/C modules.
          -DENABLE_DIST:BOOL=ON
 make %{?_smp_mflags}
 
+%if (0%{?sle_version} == 0)
 %install
+%endif
 %make_install
 # %%doc and %%license macroses are used instead
 rm -rf %{buildroot}%{_datarootdir}/doc/tarantool/
 
 %check
-%if (0%{?fedora} >= 22 || 0%{?rhel} >= 7)
+%if (0%{?fedora} >= 22 || 0%{?rhel} >= 7 || 0%{?sle_version} >= 1500)
 # https://github.com/tarantool/tarantool/issues/1227
 echo "self.skip = True" > ./test/app/socket.skipcond
 # https://github.com/tarantool/tarantool/issues/1322
 echo "self.skip = True" > ./test/app/digest.skipcond
 # run a safe subset of the test suite
+%if (0%{?sle_version} >= 1500)
+# SuSE uses only out-of-source builds always at build/ subdir in its macros
+cd build && TEST_RUN_EXCLUDE='replication/' make test-force
+%else
 cd test && ./test-run.py --force -j 1 unit/ app/ app-tap/ box/ box-tap/ engine/ vinyl/
+%endif
 %endif
 
 %pre
