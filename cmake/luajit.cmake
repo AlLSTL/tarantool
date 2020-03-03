@@ -225,6 +225,45 @@ macro(luajit_build)
         set(luajit_xcflags ${luajit_xcflags} -D${def})
     endforeach()
 
+    # Add LTO option to luajit
+    if (CMAKE_INTERPROCEDURAL_OPTIMIZATION)
+        message("Setting LTO flags for building luajit")
+        # Clang opt to support LTO
+        if (CMAKE_COMPILER_IS_CLANG)
+            if (${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS 3.9)
+                set (luajit_cflags ${luajit_cflags} -flto=full)
+            else()
+                # ThinLTO that is both scalable and incremental
+                # due to parallel IPO, available since 3.9 and above.
+                # See http://blog.llvm.org/2016/06/thinlto-scalable-and-incremental-lto.html
+                set (luajit_cflags ${luajit_cflags} -flto=thin)
+            endif()
+                # Since Darwin uses DYLD_LIBRARY_PATH instead of llvm-ar
+                # ar should not be change.
+                # See http://lists.llvm.org/pipermail/cfe-commits/Week-of-Mon-20160425/156799.html
+                if (NOT TARGET_OS_DARWIN)
+                    # llvm-ar is just a wrapper over ar to pass --plugin= option,
+                    # so that ar can understand LTO objects.
+                    # See https://lists.llvm.org/pipermail/llvm-dev/2018-March/122018.html
+                    set (CMAKE_AR llvm-ar)
+                endif()
+        else()
+        # GNU opts to support lto
+            # Due to some problems (bugs, slow work, etc) we support LTO
+            # only for 5.0+. The same is for binutils prior to 2.27
+            # See comments in scripts/Makefile.lto in scope of
+            # the patch: https://patchwork.kernel.org/patch/10078207/
+            if (NOT ${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS 5.0
+                AND NOT ${linker_version} VERSION_LESS 2.27)
+                set (luajit_cflags ${luajit_cflags} -flto -fuse-linker-plugin -fno-fat-lto-objects)
+             endif()
+            # gcc-ar is just a wrapper over ar to pass --plugin option
+            # so ar can understand LTO objects. For further info see
+            # -flto and -ffat-lto-objects options descriptions:
+            # https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html
+            set (CMAKE_AR gcc-ar)
+        endif()
+    endif()
     # Pass the same toolchain that is used for building of
     # tarantool itself, because tools from different toolchains
     # can be incompatible. A compiler and a linker are already set
