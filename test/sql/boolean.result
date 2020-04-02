@@ -2256,19 +2256,13 @@ SELECT false IN (SELECT a1 FROM t6 LIMIT 1);
  | ...
 SELECT true IN (1, 1.2, 'true', false);
  | ---
- | - metadata:
- |   - name: true IN (1, 1.2, 'true', false)
- |     type: boolean
- |   rows:
- |   - [false]
+ | - null
+ | - 'Type mismatch: can not convert 1 to boolean'
  | ...
 SELECT false IN (1, 1.2, 'true', false);
  | ---
- | - metadata:
- |   - name: false IN (1, 1.2, 'true', false)
- |     type: boolean
- |   rows:
- |   - [true]
+ | - null
+ | - 'Type mismatch: can not convert 1 to boolean'
  | ...
 
 SELECT a, a IN (true) FROM t;
@@ -2328,14 +2322,8 @@ SELECT a, a IN (SELECT a1 FROM t6) FROM t;
  | ...
 SELECT a, a IN (1, 1.2, 'true', false) FROM t;
  | ---
- | - metadata:
- |   - name: A
- |     type: boolean
- |   - name: a IN (1, 1.2, 'true', false)
- |     type: boolean
- |   rows:
- |   - [false, true]
- |   - [true, false]
+ | - null
+ | - 'Type mismatch: can not convert 1 to boolean'
  | ...
 
 SELECT true BETWEEN true AND true;
@@ -3860,19 +3848,13 @@ SELECT a2, b, b != a2 FROM t6, t7;
 
 SELECT true IN (0, 1, 2, 3);
  | ---
- | - metadata:
- |   - name: true IN (0, 1, 2, 3)
- |     type: boolean
- |   rows:
- |   - [false]
+ | - null
+ | - 'Type mismatch: can not convert 0 to boolean'
  | ...
 SELECT false IN (0, 1, 2, 3);
  | ---
- | - metadata:
- |   - name: false IN (0, 1, 2, 3)
- |     type: boolean
- |   rows:
- |   - [false]
+ | - null
+ | - 'Type mismatch: can not convert 0 to boolean'
  | ...
 SELECT true IN (SELECT b FROM t7);
  | ---
@@ -3886,14 +3868,8 @@ SELECT false IN (SELECT b FROM t7);
  | ...
 SELECT a1, a1 IN (0, 1, 2, 3) FROM t6
  | ---
- | - metadata:
- |   - name: A1
- |     type: boolean
- |   - name: a1 IN (0, 1, 2, 3)
- |     type: boolean
- |   rows:
- |   - [false, false]
- |   - [true, false]
+ | - null
+ | - 'Type mismatch: can not convert 0 to boolean'
  | ...
 
 SELECT true BETWEEN 0 and 10;
@@ -5005,35 +4981,23 @@ SELECT a2, c, c != a2 FROM t6, t8;
 
 SELECT true IN (0.1, 1.2, 2.3, 3.4);
  | ---
- | - metadata:
- |   - name: true IN (0.1, 1.2, 2.3, 3.4)
- |     type: boolean
- |   rows:
- |   - [false]
+ | - null
+ | - 'Type mismatch: can not convert 0.1 to boolean'
  | ...
 SELECT false IN (0.1, 1.2, 2.3, 3.4);
  | ---
- | - metadata:
- |   - name: false IN (0.1, 1.2, 2.3, 3.4)
- |     type: boolean
- |   rows:
- |   - [false]
+ | - null
+ | - 'Type mismatch: can not convert 0.1 to boolean'
  | ...
 SELECT a1 IN (0.1, 1.2, 2.3, 3.4) FROM t6 LIMIT 1;
  | ---
- | - metadata:
- |   - name: a1 IN (0.1, 1.2, 2.3, 3.4)
- |     type: boolean
- |   rows:
- |   - [false]
+ | - null
+ | - 'Type mismatch: can not convert 0.1 to boolean'
  | ...
 SELECT a2 IN (0.1, 1.2, 2.3, 3.4) FROM t6 LIMIT 1;
  | ---
- | - metadata:
- |   - name: a2 IN (0.1, 1.2, 2.3, 3.4)
- |     type: boolean
- |   rows:
- |   - [false]
+ | - null
+ | - 'Type mismatch: can not convert 0.1 to boolean'
  | ...
 SELECT true IN (SELECT c FROM t8);
  | ---
