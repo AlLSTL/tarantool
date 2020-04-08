@@ -790,8 +790,11 @@ next_lsn:
 	 * statement around if this is major compaction, because
 	 * there's no tuple it could overwrite.
 	 */
-	if (rc == 0 && stream->is_last_level &&
-	    stream->deferred_delete_stmt != NULL) {
+	if (rc != 0) {
+		for (int i = 0; i < stream->rv_count; ++i)
+			vy_read_view_stmt_destroy(&stream->read_views[i]);
+	} else if (stream->is_last_level &&
+		   stream->deferred_delete_stmt != NULL) {
 		vy_stmt_unref_if_possible(stream->deferred_delete_stmt);
 		stream->deferred_delete_stmt = NULL;
 	}
@@ -834,6 +837,15 @@ vy_read_view_merge(struct vy_write_iterator *stream, struct tuple *hint,
 		rv->history = NULL;
 		return 0;
 	}
+#ifndef NDEBUG
+	struct errinj *inj =
+		errinj(ERRINJ_VY_READ_VIEW_MERGE_FAIL, ERRINJ_BOOL);
+	if (inj != NULL && inj->bparam) {
+		inj->bparam = false;
+		diag_set(OutOfMemory, 666, "malloc", "struct vy_stmt");
+		return -1;
+	}
+#endif
 	/*
 	 * Two possible hints to remove the current UPSERT.
 	 * 1. If the stream is working on the last level, we
@@ -983,8 +995,13 @@ vy_write_iterator_build_read_views(struct vy_write_iterator *stream, int *count)
 		if (rv->history == NULL)
 			continue;
 		if (vy_read_view_merge(stream, hint, rv,
-				       is_first_insert) != 0)
+				       is_first_insert) != 0) {
+			while (rv >= &stream->read_views[0]) {
+				vy_read_view_stmt_destroy(rv);
+				rv--;
+			}
 			goto error;
+		}
 		assert(rv->history == NULL);
 		if (rv->tuple == NULL)
 			continue;

@@ -121,3 +121,117 @@ errinj.set('ERRINJ_VY_STMT_ALLOC', -1)
 s:drop()
  | ---
  | ...
+
+-- All the same except for delayed vy_stmt_alloc() fail.
+-- Re-create space for the sake of test purity.
+--
+s = box.schema.space.create('test', {engine = 'vinyl'})
+ | ---
+ | ...
+_ = s:create_index('pk', {run_count_per_level = 100, page_size = 128, range_size = 1024})
+ | ---
+ | ...
+
+dump(true)
+ | ---
+ | ...
+dump()
+ | ---
+ | ...
+
+compact()
+ | ---
+ | ...
+
+dump()
+ | ---
+ | ...
+
+errinj = box.error.injection
+ | ---
+ | ...
+errinj.set('ERRINJ_VY_STMT_ALLOC', 5)
+ | ---
+ | - ok
+ | ...
+-- Compaction of first range fails, so it is re-scheduled and
+-- then successfully finishes at the second attempt.
+--
+compact()
+ | ---
+ | ...
+assert(s.index.pk:stat().range_count == 2)
+ | ---
+ | - true
+ | ...
+assert(s.index.pk:stat().run_count == 2)
+ | ---
+ | - true
+ | ...
+assert(errinj.get('ERRINJ_VY_STMT_ALLOC') == -1)
+ | ---
+ | - true
+ | ...
+errinj.set('ERRINJ_VY_STMT_ALLOC', -1)
+ | ---
+ | - ok
+ | ...
+
+s:drop()
+ | ---
+ | ...
+
+-- Once again but test that clean-up is made in case
+-- vy_read_view_merge() fails.
+--
+s = box.schema.space.create('test', {engine = 'vinyl'})
+ | ---
+ | ...
+_ = s:create_index('pk', {run_count_per_level = 100, page_size = 128, range_size = 1024})
+ | ---
+ | ...
+
+dump(true)
+ | ---
+ | ...
+dump()
+ | ---
+ | ...
+
+compact()
+ | ---
+ | ...
+
+dump()
+ | ---
+ | ...
+
+errinj = box.error.injection
+ | ---
+ | ...
+errinj.set('ERRINJ_VY_READ_VIEW_MERGE_FAIL', true)
+ | ---
+ | - ok
+ | ...
+compact()
+ | ---
+ | ...
+assert(s.index.pk:stat().range_count == 2)
+ | ---
+ | - true
+ | ...
+assert(s.index.pk:stat().run_count == 2)
+ | ---
+ | - true
+ | ...
+assert(errinj.get('ERRINJ_VY_READ_VIEW_MERGE_FAIL') == false)
+ | ---
+ | - true
+ | ...
+errinj.set('ERRINJ_VY_READ_VIEW_MERGE_FAIL', false)
+ | ---
+ | - ok
+ | ...
+s:drop()
+ | ---
+ | ...
