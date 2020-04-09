@@ -154,22 +154,32 @@ test_static_docker_build:
 # OSX #
 #######
 
-# since Python 2 is EOL it's latest commit from tapped local formula is used
 OSX_PKGS=openssl readline curl icu4c libiconv zlib autoconf automake libtool \
-	cmake file://$${PWD}/tools/brew_taps/tntpython2.rb
+	cmake
 
 deps_osx:
-	# install brew using command from Homebrew repository instructions:
+	# Install brew using command from Homebrew repository instructions:
 	#   https://github.com/Homebrew/install
 	# NOTE: 'echo' command below is required since brew installation
 	# script obliges the one to enter a newline for confirming the
 	# installation via Ruby script.
 	brew update || echo | /usr/bin/ruby -e \
 		"$$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
-	# try to install the packages either upgrade it to avoid of fails
-	# if the package already exists with the previous version
+	# Try to install the packages either upgrade it to avoid of fails
+	# if the package already exists with the previous version.
 	brew install --force ${OSX_PKGS} || brew upgrade ${OSX_PKGS}
-	pip install --force-reinstall -r test-run/requirements.txt
+	# Since Python 2 is EOL, it's latest commit from tapped local formula is
+	# used. Some packages from tntpython2.rb formula use external download
+	# hosts which do not have valid SSL certificate. To resolve it the SSL
+	# certificates check need to be disabled during formula installation.
+	echo insecure >>$${HOME}/.curlrc
+	brew install --force file://$${PWD}/tools/brew_taps/tntpython2.rb || :
+	sed -i '' '$$d' $${HOME}/.curlrc && \
+	python2 -V
+	pip install --trusted-host files.pythonhosted.org \
+		--upgrade pip setuptools
+	pip install --trusted-host files.pythonhosted.org \
+		--force-reinstall -r test-run/requirements.txt
 
 build_osx:
 	cmake . -DCMAKE_BUILD_TYPE=RelWithDebInfo -DENABLE_WERROR=ON ${CMAKE_EXTRA_PARAMS}
