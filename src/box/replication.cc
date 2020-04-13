@@ -904,11 +904,6 @@ replica_on_relay_stop(struct replica *replica)
 			replica->gc = NULL;
 		} else {
 			assert(replica->gc == NULL);
-			/*
-			 * We do not replicate from anonymous
-			 * replicas.
-			 */
-			assert(replica->applier == NULL);
 		}
 	}
 	if (replica_is_orphan(replica)) {
