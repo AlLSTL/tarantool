@@ -352,33 +352,25 @@ test:do_execsql_test(
 test:do_test(
     "subquery-2.5.2",
     function()
-        -- In the expr "x IN (SELECT a FROM t3)" the RHS of the IN operator
-        -- has text affinity and the LHS has integer affinity.  The rule is
-        -- that we try to convert both sides to an integer before doing the
-        -- comparision. Hence, the integer value 10 in t3 will compare equal
-        -- to the string value '10.0' in t4 because the t4 value will be
-        -- converted into an integer.
-        return test:execsql [[
+        return test:catchsql [[
             SELECT * FROM t4 WHERE x IN (SELECT a FROM t3);
         ]]
     end, {
         -- <subquery-2.5.2>
-        "10"
+        1, "Type mismatch: can not convert integer to string"
         -- </subquery-2.5.2>
     })
 
 test:do_test(
     "subquery-2.5.3.1",
     function()
-        -- The t4i index cannot be used to resolve the "x IN (...)" constraint
-        -- because the constraint has integer affinity but t4i has text affinity.
-        return test:execsql [[
+        return test:catchsql [[
             CREATE INDEX t4i ON t4(x);
             SELECT * FROM t4 WHERE x IN (SELECT a FROM t3);
         ]]
     end, {
         -- <subquery-2.5.3.1>
-        "10"
+        1, "Type mismatch: can not convert integer to string"
         -- </subquery-2.5.3.1>
     })
 

@@ -2711,6 +2711,49 @@ expr_in_type(Parse *pParse, Expr *pExpr)
 	return zRet;
 }
 
+/**
+ * Check that arguments on both sides of IN are comparable.
+ *
+ * @param parse Parsing context.
+ * @param pExpr Expr that contains all operands.
+ *
+ * @retval true if comparable, false otherwise.
+ */
+static inline bool
+is_comparable(struct Parse *parse, struct Expr *pExpr)
+{
+	uint32_t size = sqlExprVectorSize(pExpr->pLeft);
+	ExprList *lhs_list = NULL;
+	ExprList *rhs_list = pExpr->x.pSelect->pEList;
+	u8 op = pExpr->pLeft->op;
+	if (op == TK_REGISTER)
+		op = pExpr->pLeft->op2;
+	if (op == TK_VECTOR)
+		lhs_list = pExpr->pLeft->x.pList;
+	else if (op == TK_SELECT)
+		lhs_list = pExpr->pLeft->x.pSelect->pEList;
+	assert(size == 1 || lhs_list != NULL);
+
+	for (uint32_t i = 0; i < size; ++i) {
+		struct Expr *lhs = lhs_list == NULL ? pExpr->pLeft :
+				   lhs_list->a[i].pExpr;
+		struct Expr *rhs = rhs_list->a[i].pExpr;
+		enum field_type lhs_type = sql_expr_type(lhs);
+		enum field_type rhs_type = sql_expr_type(rhs);
+		if (field_type1_contains_type2(lhs_type, rhs_type) ||
+		    field_type1_contains_type2(rhs_type, lhs_type))
+			continue;
+		if (sql_type_is_numeric(rhs_type) &&
+		    sql_type_is_numeric(lhs_type))
+			continue;
+		parse->is_aborted = true;
+		diag_set(ClientError, ER_SQL_TYPE_MISMATCH,
+			 field_type_strs[rhs_type], field_type_strs[lhs_type]);
+		return false;
+	}
+	return true;
+}
+
 /*
  * Generate code for scalar subqueries used as a subquery expression, EXISTS,
  * or IN operators.  Examples:
@@ -2821,6 +2864,8 @@ sqlCodeSubselect(Parse * pParse,	/* Parsing context */
 							      pExpr->iTable, reg_eph);
 					dest.dest_type =
 						expr_in_type(pParse, pExpr);
+					if (!is_comparable(pParse, pExpr))
+						return 0;
 					assert((pExpr->iTable & 0x0000FFFF) ==
 					       pExpr->iTable);
 					pSelect->iLimit = 0;

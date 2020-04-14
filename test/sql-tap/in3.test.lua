@@ -373,9 +373,7 @@ test:do_test(
 test:do_test(
     "in3-3.7",
     function()
-        -- Numeric affinity is applied before the comparison takes place. 
-        -- Making it impossible to use index t1_i3.
-        return exec_neph(" SELECT y IN (SELECT c FROM t1) FROM t2 ")
+        return exec_neph(" SELECT y IN (SELECT CAST(c AS INTEGER) FROM t1) FROM t2 ")
     end, {
         -- <in3-3.7>
         1, true
