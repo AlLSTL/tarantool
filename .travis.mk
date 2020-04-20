@@ -88,7 +88,7 @@ build_outofsrc:
 		make -j
 
 test_outofsrc_no_deps: build_outofsrc
-	cd ${OUT_OF_SRC_BLD_PATH} && make test-force
+	cd ${OUT_OF_SRC_BLD_PATH} && OUTOFSRC_BUILD=ON make test-force
 
 test_outofsrc: deps_debian test_outofsrc_no_deps
 
