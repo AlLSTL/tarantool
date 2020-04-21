@@ -115,6 +115,8 @@ struct memtx_engine {
 	struct checkpoint *checkpoint;
 	/** The directory where to store snapshots. */
 	struct xdir snap_dir;
+	/** The directory to store sec indxes (XXX for now eq snap_dir). */
+	struct xdir sidx_dir;
 	/** Limit disk usage of checkpointing (bytes per second). */
 	uint64_t snap_io_rate_limit;
 	/** Skip invalid snapshot records if this flag is set. */

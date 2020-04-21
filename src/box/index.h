@@ -299,6 +299,8 @@ struct snapshot_iterator {
 	 * Destroy the iterator.
 	 */
 	void (*free)(struct snapshot_iterator *);
+	size_t index_size;
+	struct index *index;
 };
 
 /**
@@ -419,6 +421,7 @@ struct index_vtab {
 	struct iterator *(*create_iterator)(struct index *index,
 			enum iterator_type type,
 			const char *key, uint32_t part_count);
+	bool (*support_snapshot_iterator)(void);
 	/**
 	 * Create an ALL iterator with personal read view so further
 	 * index modifications will not affect the iteration results.
@@ -445,6 +448,9 @@ struct index_vtab {
 	 */
 	int (*reserve)(struct index *index, uint32_t size_hint);
 	int (*build_next)(struct index *index, struct tuple *tuple);
+	bool (*support_build_number)(void);
+	int (*build_number)(struct index *index, struct tuple *tuple,
+			    size_t number);
 	void (*end_build)(struct index *index);
 };
 
@@ -679,6 +685,24 @@ index_build_next(struct index *index, struct tuple *tuple)
 	return index->vtab->build_next(index, tuple);
 }
 
+static inline int
+index_support_build_number(struct index *index)
+{
+	return index->vtab->support_build_number();
+}
+
+static inline int
+index_support_snapshot_iterator(struct index *index)
+{
+	return index->vtab->support_snapshot_iterator();
+}
+
+static inline int
+index_build_number(struct index *index, struct tuple *tuple, size_t number)
+{
+	return index->vtab->build_number(index, tuple, number);
+}
+
 static inline void
 index_end_build(struct index *index)
 {
@@ -706,6 +730,7 @@ ssize_t generic_index_count(struct index *, enum iterator_type,
 int generic_index_get(struct index *, const char *, uint32_t, struct tuple **);
 int generic_index_replace(struct index *, struct tuple *, struct tuple *,
 			  enum dup_replace_mode, struct tuple **);
+bool generic_index_support_snapshot_iterator(void);
 struct snapshot_iterator *generic_index_create_snapshot_iterator(struct index *);
 void generic_index_stat(struct index *, struct info_handler *);
 void generic_index_compact(struct index *);
@@ -717,8 +742,9 @@ generic_index_create_iterator(struct index *base, enum iterator_type type,
 			      const char *key, uint32_t part_count);
 int generic_index_build_next(struct index *, struct tuple *);
 void generic_index_end_build(struct index *);
-int
-disabled_index_build_next(struct index *index, struct tuple *tuple);
+bool generic_index_support_build_number(void);
+int disabled_index_build_number(struct index *index, struct tuple *tuple, size_t number);
+int disabled_index_build_next(struct index *index, struct tuple *tuple);
 int
 disabled_index_replace(struct index *index, struct tuple *old_tuple,
 		       struct tuple *new_tuple, enum dup_replace_mode mode,

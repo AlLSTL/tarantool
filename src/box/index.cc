@@ -755,6 +755,23 @@ disabled_index_build_next(struct index *index, struct tuple *tuple)
 	return 0;
 }
 
+bool generic_index_support_build_number(void)
+{
+	return false;
+}
+
+bool generic_index_support_snapshot_iterator(void)
+{
+	return false;
+}
+
+int
+disabled_index_build_number(struct index *index, struct tuple *tuple, size_t number)
+{
+	(void) index; (void) tuple; (void) number;
+	return 0;
+}
+
 int
 disabled_index_replace(struct index *index, struct tuple *old_tuple,
 		       struct tuple *new_tuple, enum dup_replace_mode mode,

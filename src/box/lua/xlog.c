@@ -290,6 +290,7 @@ lbox_xlog_parser_open_pairs(struct lua_State *L)
 	}
 	if (strncmp(cur->meta.filetype, "SNAP", 4) != 0 &&
 	    strncmp(cur->meta.filetype, "XLOG", 4) != 0 &&
+	    strncmp(cur->meta.filetype, "SIDX", 4) != 0 &&
 	    strncmp(cur->meta.filetype, "RUN", 3) != 0 &&
 	    strncmp(cur->meta.filetype, "INDEX", 5) != 0 &&
 	    strncmp(cur->meta.filetype, "DATA", 4) != 0 &&

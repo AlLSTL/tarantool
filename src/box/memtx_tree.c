@@ -121,6 +121,7 @@ memtx_tree_cmp_def(struct memtx_tree *tree)
 	return tree->arg;
 }
 
+#if 0
 static int
 memtx_tree_qcompare(const void* a, const void *b, void *c)
 {
@@ -130,6 +131,7 @@ memtx_tree_qcompare(const void* a, const void *b, void *c)
 	return tuple_compare(data_a->tuple, data_a->hint, data_b->tuple,
 			     data_b->hint, key_def);
 }
+#endif
 
 /* {{{ MemtxTree Iterators ****************************************/
 struct tree_iterator {
@@ -1076,6 +1078,45 @@ memtx_tree_index_build_array_append(struct memtx_tree_index *index,
 	return 0;
 }
 
+/** Initialize the element by number in the index build_array. */
+static int
+memtx_tree_index_build_array_append_number(struct memtx_tree_index *index,
+				    struct tuple *tuple, hint_t hint, size_t number)
+{
+	if (index->build_array == NULL) {
+		size_t required_size =  sizeof(struct memtx_tree_data) * number * 1.5;
+		size_t alloced = MAX(MEMTX_EXTENT_SIZE, required_size);
+		index->build_array = malloc(alloced);
+		if (index->build_array == NULL) {
+			diag_set(OutOfMemory, alloced,
+				 "memtx_tree_index", "build_number");
+			return -1;
+		}
+		index->build_array_alloc_size =
+			alloced / sizeof(index->build_array[0]);
+	}
+	assert(index->build_array_size <= index->build_array_alloc_size);
+	if (index->build_array_alloc_size < number + 1) {
+		index->build_array_alloc_size = number +
+				DIV_ROUND_UP(number, 2);
+		struct memtx_tree_data *tmp =
+			realloc(index->build_array,
+				index->build_array_alloc_size * sizeof(*tmp));
+		if (tmp == NULL) {
+			diag_set(OutOfMemory, index->build_array_alloc_size *
+				 sizeof(*tmp), "memtx_tree_index", "build_number");
+			return -1;
+		}
+		index->build_array = tmp;
+	}
+	struct memtx_tree_data *elem =
+		&index->build_array[number];
+	index->build_array_size = MAX(index->build_array_size, number + 1);
+	elem->tuple = tuple;
+	elem->hint = hint;
+	return 0;
+}
+
 static int
 memtx_tree_index_build_next(struct index *base, struct tuple *tuple)
 {
@@ -1083,6 +1124,15 @@ memtx_tree_index_build_next(struct index *base, struct tuple *tuple)
 	struct key_def *cmp_def = memtx_tree_cmp_def(&index->tree);
 	return memtx_tree_index_build_array_append(index, tuple,
 						   tuple_hint(tuple, cmp_def));
+}
+
+static int
+memtx_tree_index_build_number(struct index *base, struct tuple *tuple, size_t number)
+{
+	struct memtx_tree_index *index = (struct memtx_tree_index *)base;
+	struct key_def *cmp_def = memtx_tree_cmp_def(&index->tree);
+	return memtx_tree_index_build_array_append_number(index, tuple,
+						   tuple_hint(tuple, cmp_def), number);
 }
 
 static int
@@ -1179,8 +1229,10 @@ memtx_tree_index_end_build(struct index *base)
 {
 	struct memtx_tree_index *index = (struct memtx_tree_index *)base;
 	struct key_def *cmp_def = memtx_tree_cmp_def(&index->tree);
+#if 0 /* already sorted (FIXME for system spaces) */
 	qsort_arg(index->build_array, index->build_array_size,
 		  sizeof(index->build_array[0]), memtx_tree_qcompare, cmp_def);
+#endif
 	if (cmp_def->is_multikey) {
 		/*
 		 * Multikey index may have equal(in terms of
@@ -1260,12 +1312,20 @@ memtx_tree_index_create_snapshot_iterator(struct index *base)
 
 	it->base.free = tree_snapshot_iterator_free;
 	it->base.next = tree_snapshot_iterator_next;
+	it->base.index_size = index_size(base);
+	it->base.index = base;
 	it->index = index;
 	index_ref(base);
 	it->tree_iterator = memtx_tree_iterator_first(&index->tree);
 	memtx_tree_iterator_freeze(&index->tree, &it->tree_iterator);
 	memtx_enter_delayed_free_mode((struct memtx_engine *)base->engine);
 	return (struct snapshot_iterator *) it;
+}
+
+static bool
+supports(void)
+{
+	return true;
 }
 
 static const struct index_vtab memtx_tree_index_vtab = {
@@ -1287,6 +1347,7 @@ static const struct index_vtab memtx_tree_index_vtab = {
 	/* .get = */ memtx_tree_index_get,
 	/* .replace = */ memtx_tree_index_replace,
 	/* .create_iterator = */ memtx_tree_index_create_iterator,
+	/* .support_snapshot_iterator = */ supports,
 	/* .create_snapshot_iterator = */
 		memtx_tree_index_create_snapshot_iterator,
 	/* .stat = */ generic_index_stat,
@@ -1295,6 +1356,8 @@ static const struct index_vtab memtx_tree_index_vtab = {
 	/* .begin_build = */ memtx_tree_index_begin_build,
 	/* .reserve = */ memtx_tree_index_reserve,
 	/* .build_next = */ memtx_tree_index_build_next,
+	/* .support_build_number = */ supports,
+	/* .build_number = */ memtx_tree_index_build_number,
 	/* .end_build = */ memtx_tree_index_end_build,
 };
 
@@ -1317,6 +1380,8 @@ static const struct index_vtab memtx_tree_index_multikey_vtab = {
 	/* .get = */ memtx_tree_index_get,
 	/* .replace = */ memtx_tree_index_replace_multikey,
 	/* .create_iterator = */ memtx_tree_index_create_iterator,
+	/* .support_snapshot_iterator = */
+		generic_index_support_snapshot_iterator,
 	/* .create_snapshot_iterator = */
 		memtx_tree_index_create_snapshot_iterator,
 	/* .stat = */ generic_index_stat,
@@ -1325,6 +1390,8 @@ static const struct index_vtab memtx_tree_index_multikey_vtab = {
 	/* .begin_build = */ memtx_tree_index_begin_build,
 	/* .reserve = */ memtx_tree_index_reserve,
 	/* .build_next = */ memtx_tree_index_build_next_multikey,
+	/* .support_build_number = */ generic_index_support_build_number,
+	/* .build_number = */ disabled_index_build_number,
 	/* .end_build = */ memtx_tree_index_end_build,
 };
 
@@ -1347,6 +1414,8 @@ static const struct index_vtab memtx_tree_func_index_vtab = {
 	/* .get = */ memtx_tree_index_get,
 	/* .replace = */ memtx_tree_func_index_replace,
 	/* .create_iterator = */ memtx_tree_index_create_iterator,
+	/* .support_snapshot_iterator = */
+		generic_index_support_snapshot_iterator,
 	/* .create_snapshot_iterator = */
 		memtx_tree_index_create_snapshot_iterator,
 	/* .stat = */ generic_index_stat,
@@ -1355,6 +1424,8 @@ static const struct index_vtab memtx_tree_func_index_vtab = {
 	/* .begin_build = */ memtx_tree_index_begin_build,
 	/* .reserve = */ memtx_tree_index_reserve,
 	/* .build_next = */ memtx_tree_func_index_build_next,
+	/* .support_build_number = */ generic_index_support_build_number,
+	/* .build_number = */ disabled_index_build_number,
 	/* .end_build = */ memtx_tree_index_end_build,
 };
 
@@ -1383,6 +1454,8 @@ static const struct index_vtab memtx_tree_disabled_index_vtab = {
 	/* .get = */ generic_index_get,
 	/* .replace = */ disabled_index_replace,
 	/* .create_iterator = */ generic_index_create_iterator,
+	/* .support_snapshot_iterator = */
+		generic_index_support_snapshot_iterator,
 	/* .create_snapshot_iterator = */
 		generic_index_create_snapshot_iterator,
 	/* .stat = */ generic_index_stat,
@@ -1391,6 +1464,8 @@ static const struct index_vtab memtx_tree_disabled_index_vtab = {
 	/* .begin_build = */ generic_index_begin_build,
 	/* .reserve = */ generic_index_reserve,
 	/* .build_next = */ disabled_index_build_next,
+	/* .support_build_number = */ generic_index_support_build_number,
+	/* .build_number = */ disabled_index_build_number,
 	/* .end_build = */ generic_index_end_build,
 };
 

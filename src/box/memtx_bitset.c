@@ -489,6 +489,8 @@ static const struct index_vtab memtx_bitset_index_vtab = {
 	/* .get = */ generic_index_get,
 	/* .replace = */ memtx_bitset_index_replace,
 	/* .create_iterator = */ memtx_bitset_index_create_iterator,
+	/* .support_snapshot_iterator = */
+		generic_index_support_snapshot_iterator,
 	/* .create_snapshot_iterator = */
 		generic_index_create_snapshot_iterator,
 	/* .stat = */ generic_index_stat,
@@ -497,6 +499,8 @@ static const struct index_vtab memtx_bitset_index_vtab = {
 	/* .begin_build = */ generic_index_begin_build,
 	/* .reserve = */ generic_index_reserve,
 	/* .build_next = */ generic_index_build_next,
+	/* .support_build_number = */ generic_index_support_build_number,
+	/* .build_number = */ disabled_index_build_number,
 	/* .end_build = */ generic_index_end_build,
 };
 
