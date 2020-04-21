@@ -137,6 +137,7 @@ level_to_string(int level)
 	return level_strs[level];
 }
 
+/*
 static int
 level_to_syslog_priority(int level)
 {
@@ -161,6 +162,7 @@ level_to_syslog_priority(int level)
 		return LOG_ERR;
 	}
 }
+*/
 
 enum say_logger_type
 log_type()
@@ -424,10 +426,12 @@ log_pipe_init(struct log *log, const char *init_str)
 	struct timespec timeout;
 	timeout.tv_sec = 0;
 	timeout.tv_nsec = 1; /* Mostly to trigger preemption. */
+	#ifndef __OpenBSD__
 	if (sigtimedwait(&mask, NULL, &timeout) == SIGCHLD) {
 		diag_set(IllegalParams, "logger process died");
 		return -1;
 	}
+	#endif
 #endif
 	/* OK, let's hope for the best. */
 	sigprocmask(SIG_UNBLOCK, &mask, NULL);
@@ -934,9 +938,11 @@ say_format_syslog(struct log *log, char *buf, int len, int level, const char *fi
 	int total = 0;
 
 	/* Format syslog header according to RFC */
+	/*
 	int prio = level_to_syslog_priority(level);
 	SNPRINT(total, snprintf, buf, len, "<%d>",
 		LOG_MAKEPRI(8 * log->syslog_facility, prio));
+	*/
 	SNPRINT(total, strftime, buf, len, "%h %e %T ", &tm);
 	SNPRINT(total, snprintf, buf, len, "%s[%d]:", log->syslog_ident, getpid());
 
