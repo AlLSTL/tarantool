@@ -41,6 +41,8 @@ struct obuf;
 struct lua_State;
 struct port;
 
+extern const struct port_vtab port_c_vtab;
+
 /**
  * A single port represents a destination of any output. One such
  * destination can be a Lua stack, or the binary protocol. An
@@ -113,7 +115,7 @@ struct port_vtab {
 
 /**
  * Abstract port instance. It is supposed to be converted to
- * a concrete port realization, e.g. port_tuple.
+ * a concrete port realization, e.g. port_c.
  */
 struct port {
 	/** Virtual method table. */
