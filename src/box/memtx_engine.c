@@ -342,6 +342,8 @@ memtx_engine_begin_final_recovery(struct engine *engine)
 	assert(memtx->state == MEMTX_INITIAL_RECOVERY);
 	/* End of the fast path: loaded the primary key. */
 	space_foreach(memtx_end_build_primary_key, memtx);
+	if (space_foreach(memtx_build_secondary_keys, memtx) != 0)
+		return -1;
 
 	if (!memtx->force_recovery) {
 		/*
@@ -378,8 +380,6 @@ memtx_engine_end_recovery(struct engine *engine)
 	if (memtx->state != MEMTX_OK) {
 		assert(memtx->state == MEMTX_FINAL_RECOVERY);
 		memtx->state = MEMTX_OK;
-		if (space_foreach(memtx_build_secondary_keys, memtx) != 0)
-			return -1;
 	}
 	return 0;
 }
