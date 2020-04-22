@@ -6,6 +6,7 @@ DOCKER_IMAGE?=packpack/packpack:debian-stretch
 TEST_RUN_EXTRA_PARAMS?=
 MAX_FILES?=65534
 MAX_PROC?=2500
+LANES_ROCKSPEC="https://luarocks.org/manifests/benoitgermain/lanes-3.13.0-0.rockspec"
 
 all: package
 
@@ -65,7 +66,8 @@ deps_debian:
 		libcurl4-openssl-dev libunwind-dev libicu-dev \
 		python python-pip python-setuptools python-dev \
 		python-msgpack python-yaml python-argparse python-six python-gevent \
-		lcov ruby clang llvm llvm-dev zlib1g-dev autoconf automake libtool
+		lcov ruby clang llvm llvm-dev zlib1g-dev autoconf automake libtool \
+		tarantool-devel
 
 deps_buster_clang_8: deps_debian
 	echo "deb http://apt.llvm.org/buster/ llvm-toolchain-buster-8 main" > /etc/apt/sources.list.d/clang_8.list
@@ -154,9 +156,10 @@ test_static_docker_build:
 # ###################
 
 test_debian_luacheck: build_debian_install
+	ulimit -r unlimited
 	tarantoolctl rocks install luacheck
-	# TODO: run in parallel with LuaLanes
-	.rocks/bin/luacheck --codes --config .luacheckrc .
+	tarantoolctl rocks install ${LANES_ROCKSPEC}
+	.rocks/bin/luacheck --jobs $(getconf _NPROCESSORS_ONLN) --codes --config .luacheckrc .
 
 #######
 # OSX #
